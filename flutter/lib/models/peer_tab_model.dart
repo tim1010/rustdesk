@@ -38,7 +38,7 @@ class PeerTabModel with ChangeNotifier {
     IconFont.deviceGroupFill,
   ];
   List<bool> isEnabled = List.from([
-    true,
+    bind.mainGetLocalOption(key: "disable-recent-panel") != "Y",
     true,
     !isWeb && bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
     !(bind.isDisableAb() || bind.isDisableAccount()),
