@@ -168,6 +168,7 @@ void runMainApp(bool startService) async {
     }
     windowManager.setOpacity(1);
     windowManager.setTitle(getWindowName(overrideType: WindowType.Main));
+    applyMspWindowIcon();
     // Do not use `windowManager.setResizable()` here.
     setResizable(!bind.isIncomingOnly());
   });
@@ -309,6 +310,7 @@ showCmWindow({bool isStartup = false}) async {
         size: kConnectionManagerWindowSizeClosedChat, alwaysOnTop: true);
     await windowManager.waitUntilReadyToShow(windowOptions, null);
     bind.mainHideDock();
+    await applyMspWindowIcon();
     await Future.wait([
       windowManager.show(),
       windowManager.focus(),

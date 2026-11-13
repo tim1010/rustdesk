@@ -3870,7 +3870,17 @@ class _LogoState extends State<_Logo> {
 // max 300 x 60
 Widget loadLogo() => const _Logo();
 
+/// MSP host-only build: show the HGC IT logo in the window's taskbar and Alt-Tab icon.
+Future<void> applyMspWindowIcon() async {
+  if (isWindows && getMspTitle().isNotEmpty) {
+    await windowManager.setIcon('assets/msp_logo.ico');
+  }
+}
+
 Widget loadIcon(double size) {
+  if (getMspTitle().isNotEmpty) {
+    return Image.asset(_kMspLogoAsset, width: size, height: size);
+  }
   return Image.asset('assets/icon.png',
       width: size,
       height: size,
