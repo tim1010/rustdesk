@@ -2507,6 +2507,63 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 }
 
 pub fn load_custom_client() {
+    load_custom_client_file();
+    apply_msp_host_lock();
+}
+
+/// MSP host-only build. Compiled in when the build runs with `RUSTDESK_MSP_HOST=1` set.
+/// It forces incoming-only mode, pins the rendezvous/relay/API server and key so neither
+/// the settings, the config files nor the exe name can change them, and hides the ID and
+/// one-time password from the main window.
+pub fn is_msp_host_lock() -> bool {
+    option_env!("RUSTDESK_MSP_HOST") == Some("1")
+}
+
+pub const MSP_RENDEZVOUS_SERVER: &str = "rd.hgcit.co.uk";
+pub const MSP_RELAY_SERVER: &str = "rd.hgcit.co.uk";
+pub const MSP_API_SERVER: &str = "https://rd.hgcit.co.uk";
+pub const MSP_KEY: &str = "RpchEQc2AGDpCBqefAhjnwb3kH0ln8wRGKwbUC2Jh6Y=";
+/// Built-in option the Flutter home page reads to hide the ID and password boards.
+pub const OPTION_MSP_HIDE_ID_PASSWORD: &str = "msp-hide-id-password";
+
+pub fn apply_msp_host_lock() {
+    if !is_msp_host_lock() {
+        return;
+    }
+    config::HARD_SETTINGS
+        .write()
+        .unwrap()
+        .insert("conn-type".to_owned(), "incoming".to_owned());
+    {
+        let mut overwrite = config::OVERWRITE_SETTINGS.write().unwrap();
+        for (k, v) in [
+            ("custom-rendezvous-server", MSP_RENDEZVOUS_SERVER),
+            (keys::OPTION_RELAY_SERVER, MSP_RELAY_SERVER),
+            ("api-server", MSP_API_SERVER),
+            ("key", MSP_KEY),
+            // No direct IP access: every session goes through the MSP server.
+            (keys::OPTION_DIRECT_SERVER, "N"),
+        ] {
+            overwrite.insert(k.to_owned(), v.to_owned());
+        }
+    }
+    {
+        let mut builtin = config::BUILTIN_SETTINGS.write().unwrap();
+        for k in [
+            keys::OPTION_HIDE_SERVER_SETTINGS,
+            keys::OPTION_HIDE_NETWORK_SETTINGS,
+            keys::OPTION_HIDE_PROXY_SETTINGS,
+            keys::OPTION_HIDE_WEBSOCKET_SETTINGS,
+            keys::OPTION_DISABLE_CHANGE_ID,
+            OPTION_MSP_HIDE_ID_PASSWORD,
+        ] {
+            builtin.insert(k.to_owned(), "Y".to_owned());
+        }
+    }
+    *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = MSP_RENDEZVOUS_SERVER.to_owned();
+}
+
+fn load_custom_client_file() {
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());

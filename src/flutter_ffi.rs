@@ -52,6 +52,7 @@ fn initialize(app_dir: &str, custom_client_config: &str) {
         crate::load_custom_client();
     } else {
         crate::read_custom_client(custom_client_config);
+        crate::common::apply_msp_host_lock();
     }
     #[cfg(target_os = "android")]
     {

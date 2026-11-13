@@ -78,6 +78,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget buildLeftPane(BuildContext context) {
     final isIncomingOnly = bind.isIncomingOnly();
     final isOutgoingOnly = bind.isOutgoingOnly();
+    // MSP host-only build: the ID and one-time password are not shown on screen.
+    final hideIdPassword =
+        bind.mainGetBuildinOption(key: 'msp-hide-id-password') == 'Y';
     final children = <Widget>[
       if (!isOutgoingOnly) buildPresetPasswordWarning(),
       if (bind.isCustomClient())
@@ -89,9 +92,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         alignment: Alignment.center,
         child: loadLogo(),
       ),
-      buildTip(context),
-      if (!isOutgoingOnly) buildIDBoard(context),
-      if (!isOutgoingOnly) buildPasswordBoard(context),
+      buildTip(context, hideIdPassword: hideIdPassword),
+      if (!isOutgoingOnly && !hideIdPassword) buildIDBoard(context),
+      if (!isOutgoingOnly && !hideIdPassword) buildPasswordBoard(context),
       FutureBuilder<Widget>(
         future: Future.value(
             Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
@@ -386,7 +389,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  buildTip(BuildContext context) {
+  buildTip(BuildContext context, {bool hideIdPassword = false}) {
     final isOutgoingOnly = bind.isOutgoingOnly();
     return Padding(
       padding:
@@ -410,7 +413,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           SizedBox(
             height: 10.0,
           ),
-          if (!isOutgoingOnly)
+          if (!isOutgoingOnly && !hideIdPassword)
             Text(
               translate("desk_tip"),
               overflow: TextOverflow.clip,

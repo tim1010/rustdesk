@@ -2172,6 +2172,16 @@ pub fn prepare_custom_client_update() -> ResultType<bool> {
 }
 
 pub fn get_license_from_exe_name() -> ResultType<CustomServer> {
+    // The MSP host-only build ignores server settings in the exe name and always reports
+    // the pinned MSP server, so renaming the exe can't point it somewhere else.
+    if crate::common::is_msp_host_lock() {
+        return Ok(CustomServer {
+            key: crate::common::MSP_KEY.to_owned(),
+            host: crate::common::MSP_RENDEZVOUS_SERVER.to_owned(),
+            api: crate::common::MSP_API_SERVER.to_owned(),
+            relay: crate::common::MSP_RELAY_SERVER.to_owned(),
+        });
+    }
     let mut exe = std::env::current_exe()?.to_str().unwrap_or("").to_owned();
     // if defined portable appname entry, replace original executable name with it.
     if let Ok(portable_exe) = std::env::var(PORTABLE_APPNAME_RUNTIME_ENV_KEY) {
