@@ -167,7 +167,7 @@ void runMainApp(bool startService) async {
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
     }
     windowManager.setOpacity(1);
-    windowManager.setTitle(getWindowName());
+    windowManager.setTitle(getWindowName(overrideType: WindowType.Main));
     // Do not use `windowManager.setResizable()` here.
     setResizable(!bind.isIncomingOnly());
   });

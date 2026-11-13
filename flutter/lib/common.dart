@@ -3060,11 +3060,15 @@ int versionCmp(String v1, String v2) {
   return bind.versionToNumber(v: v1) - bind.versionToNumber(v: v2);
 }
 
+/// Name of the MSP host-only build, empty in a standard build.
+String getMspTitle() => bind.mainGetBuildinOption(key: 'msp-title');
+
 String getWindowName({WindowType? overrideType}) {
   final name = bind.mainGetAppNameSync();
   switch (overrideType ?? kWindowType) {
     case WindowType.Main:
-      return name;
+      final mspTitle = getMspTitle();
+      return mspTitle.isNotEmpty ? mspTitle : name;
     case WindowType.FileTransfer:
       return "File Transfer - $name";
     case WindowType.ViewCamera:
@@ -3798,7 +3802,12 @@ const _kDefaultLogoAsset = 'assets/logo.png';
 const _kLightLogoAsset = 'assets/logo_light.png';
 const _kDarkLogoAsset = 'assets/logo_dark.png';
 
+const _kMspLogoAsset = 'assets/msp_logo.png';
+
 List<String> _logoAssetCandidatesForBrightness(Brightness brightness) {
+  if (getMspTitle().isNotEmpty) {
+    return [_kMspLogoAsset];
+  }
   return brightness == Brightness.dark
       ? [_kDarkLogoAsset, _kDefaultLogoAsset]
       : [_kLightLogoAsset, _kDefaultLogoAsset];

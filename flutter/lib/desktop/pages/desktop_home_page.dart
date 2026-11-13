@@ -402,9 +402,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             children: [
               if (!isOutgoingOnly)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: getMspTitle().isNotEmpty
+                      ? Alignment.center
+                      : Alignment.centerLeft,
                   child: Text(
-                    translate("Your Desktop"),
+                    getMspTitle().isNotEmpty
+                        ? getMspTitle()
+                        : translate("Your Desktop"),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),

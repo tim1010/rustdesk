@@ -2525,6 +2525,9 @@ pub const MSP_API_SERVER: &str = "https://rd.hgcit.co.uk";
 pub const MSP_KEY: &str = "RpchEQc2AGDpCBqefAhjnwb3kH0ln8wRGKwbUC2Jh6Y=";
 /// Built-in option the Flutter home page reads to hide the ID and password boards.
 pub const OPTION_MSP_HIDE_ID_PASSWORD: &str = "msp-hide-id-password";
+/// Built-in option holding the name shown as the home page heading and main window title.
+pub const OPTION_MSP_TITLE: &str = "msp-title";
+pub const MSP_TITLE: &str = "HGC IT MSP Access";
 
 pub fn apply_msp_host_lock() {
     if !is_msp_host_lock() {
@@ -2559,6 +2562,7 @@ pub fn apply_msp_host_lock() {
         ] {
             builtin.insert(k.to_owned(), "Y".to_owned());
         }
+        builtin.insert(OPTION_MSP_TITLE.to_owned(), MSP_TITLE.to_owned());
     }
     *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = MSP_RENDEZVOUS_SERVER.to_owned();
 }
