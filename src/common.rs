@@ -2528,11 +2528,25 @@ pub const OPTION_MSP_HIDE_ID_PASSWORD: &str = "msp-hide-id-password";
 /// Built-in option holding the name shown as the home page heading and main window title.
 pub const OPTION_MSP_TITLE: &str = "msp-title";
 pub const MSP_TITLE: &str = "HGC IT MSP Access";
+/// Internal app name for the MSP build. It names the installed exe (`HGCITMSPAccess.exe`),
+/// install folder, service, config folder and registry keys. It must have no spaces: the
+/// installer scripts use it unquoted (`sc create`, `taskkill /IM`).
+pub const MSP_APP_NAME: &str = "HGCITMSPAccess";
+
+/// Name for the Start menu folder, shortcut and Add/Remove Programs entry.
+pub fn get_shortcut_name() -> String {
+    if is_msp_host_lock() {
+        MSP_TITLE.to_owned()
+    } else {
+        get_app_name()
+    }
+}
 
 pub fn apply_msp_host_lock() {
     if !is_msp_host_lock() {
         return;
     }
+    *config::APP_NAME.write().unwrap() = MSP_APP_NAME.to_owned();
     config::HARD_SETTINGS
         .write()
         .unwrap()

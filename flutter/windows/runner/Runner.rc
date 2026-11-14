@@ -93,6 +93,16 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
+#ifdef RUSTDESK_MSP_HOST
+            VALUE "CompanyName", "HGC IT Solutions Limited" "\0"
+            VALUE "FileDescription", "HGC IT MSP Access" "\0"
+            VALUE "FileVersion", VERSION_AS_STRING "\0"
+            VALUE "InternalName", "HGCITMSPAccess" "\0"
+            VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
+            VALUE "OriginalFilename", "HGCITMSPAccess.exe" "\0"
+            VALUE "ProductName", "HGC IT MSP Access" "\0"
+            VALUE "ProductVersion", VERSION_AS_STRING "\0"
+#else
             VALUE "CompanyName", "Purslane Tech Pte. Ltd." "\0"
             VALUE "FileDescription", "RustDesk Remote Desktop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
@@ -101,6 +111,7 @@ BEGIN
             VALUE "OriginalFilename", "rustdesk.exe" "\0"
             VALUE "ProductName", "RustDesk" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
+#endif
         END
     END
     BLOCK "VarFileInfo"

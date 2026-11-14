@@ -8,9 +8,10 @@ Build the MSP client first (with RUSTDESK_MSP_HOST=1), and copy its Release fold
 -Source. The MSI:
   - shows -DisplayName in Add/Remove Programs, with the HGC IT logo as its icon
   - is marked incoming-only (installs and starts the service)
-  - keeps "RustDesk" as the internal product name, so the install folder, service,
-    registry keys and exe name match what the app expects. It shares the standard
-    RustDesk MSI's UpgradeCode, so it replaces a standard install.
+  - uses -AppName (the MSP build's internal app name, MSP_APP_NAME in src/common.rs) for
+    the exe, install folder, service and registry keys, so it installs alongside a
+    standard RustDesk rather than replacing it
+  - names the Start menu folder and shortcut -DisplayName, and creates no desktop shortcut
 
 .EXAMPLE
 .\build-msp-msi.ps1
@@ -23,6 +24,8 @@ param(
     [string]$OutDir,
     # Name shown in Add/Remove Programs; matches MSP_TITLE in src/common.rs.
     [string]$DisplayName = 'HGC IT MSP Access',
+    # Internal app name; must match MSP_APP_NAME in src/common.rs (no spaces).
+    [string]$AppName = 'HGCITMSPAccess',
     [string]$MSBuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
 )
 $ErrorActionPreference = 'Stop'
@@ -32,19 +35,50 @@ if (-not $Source) { $Source = "$Root\builds\msp-host\Release" }
 if (-not $OutDir) { $OutDir = "$Root\builds\msp-host" }
 $Stage = "$Root\msi-stage\msp-host\rustdesk"
 
-if (-not (Test-Path "$Source\rustdesk.exe")) { throw "MSP build not found at $Source" }
+if (-not (Test-Path "$Source\$AppName.exe") -and -not (Test-Path "$Source\rustdesk.exe")) { throw "MSP build not found at $Source" }
 if (-not (Test-Path $MSBuild)) { throw "MSBuild not found at $MSBuild" }
 
-# Stage a clean copy of the app folder.
+# Stage a clean copy of the app folder, with the exe named after the app.
 if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
 New-Item -ItemType Directory -Force $Stage | Out-Null
 Copy-Item -Recurse "$Source\*" $Stage
+if (Test-Path "$Stage\rustdesk.exe") {
+    if (Test-Path "$Stage\$AppName.exe") { Remove-Item -Force "$Stage\rustdesk.exe" }
+    else { Rename-Item "$Stage\rustdesk.exe" "$AppName.exe" }
+}
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 
 Push-Location "$Repo\res\msi"
 try {
-    python preprocess.py -d $Stage --conn-type incoming
+    python preprocess.py -d $Stage --conn-type incoming --app-name $AppName -m 'HGC IT Solutions Limited'
     if ($LASTEXITCODE -ne 0) { throw "preprocess.py failed" }
+
+    # Start menu folder and shortcut names: the display name, not the internal app name.
+    $folders = 'Package\Components\Folders.wxs'
+    $t = Get-Content -Raw $folders
+    if ($t -notmatch '<Directory Id="App.StartMenu" Name="\$\(var\.Product\)" />') { throw "App.StartMenu folder not found in $folders" }
+    $t = $t.Replace('<Directory Id="App.StartMenu" Name="$(var.Product)" />', "<Directory Id=""App.StartMenu"" Name=""$DisplayName"" />")
+    [IO.File]::WriteAllText((Resolve-Path $folders), $t, [Text.UTF8Encoding]::new($true))
+    foreach ($wxl in Get-ChildItem 'Package\Language\Package.*.wxl') {
+        $t = Get-Content -Raw $wxl.FullName
+        $t = $t -replace '<String Id="SC_Client" Value="[^"]*"', "<String Id=""SC_Client"" Value=""$DisplayName"""
+        $t = $t -replace '<String Id="SC_Client_Desc" Value="[^"]*"', "<String Id=""SC_Client_Desc"" Value=""Start $DisplayName."""
+        $t = $t -replace '<String Id="SC_Uninstall" Value="[^"]*"', "<String Id=""SC_Uninstall"" Value=""Uninstall $DisplayName"""
+        [IO.File]::WriteAllText($wxl.FullName, $t, [Text.UTF8Encoding]::new($true))
+    }
+
+    # No desktop shortcut: drop the component and the installer's checkbox for it.
+    $comp = 'Package\Components\RustDesk.wxs'
+    $t = Get-Content -Raw $comp
+    $desktop = [regex]'(?s)\s*<StandardDirectory Id="DesktopFolder">\s*<Component Id="App\.Desktop\.Shortcut".*?</StandardDirectory>'
+    if (-not $desktop.IsMatch($t)) { throw "Desktop shortcut component not found in $comp" }
+    $t = $desktop.Replace($t, '', 1)
+    $t = $t -replace '\s*<ComponentRef Id="App\.Desktop\.Shortcut" />', ''
+    [IO.File]::WriteAllText((Resolve-Path $comp), $t, [Text.UTF8Encoding]::new($true))
+    $dlg = 'Package\UI\MyInstallDirDlg.wxs'
+    $t = Get-Content -Raw $dlg
+    $t = $t -replace '\s*<Control Id="ChkBoxDesktopShortcuts"[^>]*/>', ''
+    [IO.File]::WriteAllText((Resolve-Path $dlg), $t, [Text.UTF8Encoding]::new($true))
 
     # Add/Remove Programs icon: HGC IT logo instead of the RustDesk one.
     Copy-Item -Force "$Repo\flutter\assets\msp_logo.ico" "Package\Resources\icon.ico"
