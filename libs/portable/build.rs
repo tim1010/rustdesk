@@ -4,8 +4,11 @@ fn main() {
         use std::io::Write;
         // MSP host-only build: the portable installer gets the HGC IT logo.
         println!("cargo:rerun-if-env-changed=RUSTDESK_MSP_HOST");
+        println!("cargo:rerun-if-env-changed=RUSTDESK_QUICK_ACCESS");
         println!("cargo:rerun-if-changed=build.rs");
-        let icon = if std::env::var("RUSTDESK_MSP_HOST").as_deref() == Ok("1") {
+        let icon = if std::env::var("RUSTDESK_MSP_HOST").as_deref() == Ok("1")
+            || std::env::var("RUSTDESK_QUICK_ACCESS").as_deref() == Ok("1")
+        {
             "../../flutter/assets/msp_logo.ico"
         } else {
             "../../res/icon.ico"

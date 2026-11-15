@@ -52,7 +52,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-#ifdef RUSTDESK_MSP_HOST
+#if defined(RUSTDESK_MSP_HOST) || defined(RUSTDESK_QUICK_ACCESS)
 IDI_APP_ICON            ICON                    "..\\..\\assets\\msp_logo.ico"
 #else
 IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
@@ -101,6 +101,15 @@ BEGIN
             VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
             VALUE "OriginalFilename", "HGCITMSPAccess.exe" "\0"
             VALUE "ProductName", "HGC IT MSP Access" "\0"
+            VALUE "ProductVersion", VERSION_AS_STRING "\0"
+#elif defined(RUSTDESK_QUICK_ACCESS)
+            VALUE "CompanyName", "HGC IT Solutions Limited" "\0"
+            VALUE "FileDescription", "HGC IT Quick Access" "\0"
+            VALUE "FileVersion", VERSION_AS_STRING "\0"
+            VALUE "InternalName", "HGCITQuickAccess" "\0"
+            VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
+            VALUE "OriginalFilename", "HGCITQuickAccess.exe" "\0"
+            VALUE "ProductName", "HGC IT Quick Access" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
 #else
             VALUE "CompanyName", "Purslane Tech Pte. Ltd." "\0"

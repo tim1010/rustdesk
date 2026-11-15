@@ -32,6 +32,10 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_BUILD=${FLUTT
 if("$ENV{RUSTDESK_MSP_HOST}" STREQUAL "1")
   target_compile_definitions(${BINARY_NAME} PRIVATE "RUSTDESK_MSP_HOST")
 endif()
+# HGC IT Quick Access build: same logo, Quick Access version strings.
+if("$ENV{RUSTDESK_QUICK_ACCESS}" STREQUAL "1")
+  target_compile_definitions(${BINARY_NAME} PRIVATE "RUSTDESK_QUICK_ACCESS")
+endif()
 
 # Disable Windows macros that collide with C++ standard library functions.
 target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
