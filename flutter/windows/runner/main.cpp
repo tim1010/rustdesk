@@ -95,6 +95,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // Uri links dispatch
   HWND hwnd = ::FindWindowW(getWindowClassName(), app_name.c_str());
+  if (hwnd == NULL) {
+    // Quick Access titles its main window with its display name, not the app name.
+    FUNC_RUSTDESK_GET_APP_NAME get_main_window_title = (FUNC_RUSTDESK_GET_APP_NAME)GetProcAddress(hInstance, "get_rustdesk_main_window_title");
+    wchar_t title_buffer[512] = {0};
+    if (get_main_window_title && get_main_window_title(title_buffer, 512) == 0 && app_name != title_buffer) {
+      hwnd = ::FindWindowW(getWindowClassName(), title_buffer);
+    }
+  }
   if (hwnd != NULL) {
     // Allow multiple flutter instances when being executed by parameters
     // contained in whitelists.

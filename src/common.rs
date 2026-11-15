@@ -2569,18 +2569,34 @@ pub fn apply_quick_access() {
         .write()
         .unwrap()
         .insert("conn-type".to_owned(), "outgoing".to_owned());
-    {
-        let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
-        for (k, v) in quick_access_default_settings() {
-            defaults.insert(k.to_owned(), v.to_owned());
-        }
-    }
+    fill_quick_access_defaults(&mut config::DEFAULT_SETTINGS.write().unwrap());
     {
         let mut builtin = config::BUILTIN_SETTINGS.write().unwrap();
         builtin.insert(OPTION_MSP_TITLE.to_owned(), QA_TITLE.to_owned());
         builtin.insert(OPTION_QUICK_ACCESS.to_owned(), "Y".to_owned());
     }
-    *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = MSP_RENDEZVOUS_SERVER.to_owned();
+    // No EXE_RENDEZVOUS_SERVER here: it outranks the settings page, which must stay editable.
+}
+
+/// Fills only the gaps, so defaults from a dropped-in custom.txt win.
+fn fill_quick_access_defaults(defaults: &mut HashMap<String, String>) {
+    for (k, v) in quick_access_default_settings() {
+        defaults.entry(k.to_owned()).or_insert_with(|| v.to_owned());
+    }
+}
+
+/// Title of the main window, which a second launch (a clicked link, `--connect`) looks up to
+/// hand over to the running instance. Quick Access shows its display name there.
+pub fn get_main_window_title() -> String {
+    main_window_title_for(&get_app_name(), is_quick_access())
+}
+
+fn main_window_title_for(app_name: &str, quick_access: bool) -> String {
+    if quick_access {
+        QA_TITLE.to_owned()
+    } else {
+        app_name.to_owned()
+    }
 }
 
 /// MSP host-only build. Compiled in when the build runs with `RUSTDESK_MSP_HOST=1` set.
@@ -3276,6 +3292,23 @@ mod tests {
         assert_eq!(d.get("key"), Some(&MSP_KEY));
         // Hosts behind another NAT (e.g. a VM) are only reachable through the relay.
         assert_eq!(d.get(keys::OPTION_ALLOW_WEBSOCKET), Some(&"Y"));
+    }
+
+    #[test]
+    fn quick_access_main_window_is_found_by_its_shown_title() {
+        assert_eq!(main_window_title_for("HGCITQuickAccess", true), "HGC IT Quick Access");
+        assert_eq!(main_window_title_for("HGCITMSPAccess", false), "HGCITMSPAccess");
+    }
+
+    #[test]
+    fn quick_access_defaults_keep_custom_txt_defaults() {
+        let mut d = HashMap::from([("key".to_owned(), "from-custom-txt".to_owned())]);
+        fill_quick_access_defaults(&mut d);
+        assert_eq!(d.get("key").map(String::as_str), Some("from-custom-txt"));
+        assert_eq!(
+            d.get("custom-rendezvous-server").map(String::as_str),
+            Some("rd.hgcit.co.uk")
+        );
     }
 
     #[test]

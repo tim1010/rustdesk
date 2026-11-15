@@ -234,6 +234,17 @@ pub unsafe extern "C" fn get_rustdesk_app_name(buffer: *mut u16, length: i32) ->
     -1
 }
 
+#[cfg(windows)]
+#[no_mangle]
+pub unsafe extern "C" fn get_rustdesk_main_window_title(buffer: *mut u16, length: i32) -> i32 {
+    let name = crate::platform::wide_string(&crate::common::get_main_window_title());
+    if length > name.len() as i32 {
+        std::ptr::copy_nonoverlapping(name.as_ptr(), buffer, name.len());
+        return 0;
+    }
+    -1
+}
+
 #[derive(Default)]
 struct SessionHandler {
     event_stream: Option<StreamSink<EventToUI>>,
