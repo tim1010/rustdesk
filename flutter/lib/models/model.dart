@@ -744,7 +744,7 @@ class FfiModel with ChangeNotifier {
 
   onUrlSchemeReceived(Map<String, dynamic> evt) {
     final url = evt['url'].toString().trim();
-    if (url.startsWith(bind.mainUriPrefixSync()) &&
+    if (isOurUriLink(url) &&
         handleUriLink(uriString: url)) {
       return;
     }

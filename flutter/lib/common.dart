@@ -2258,7 +2258,7 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
   if (cmdArgs != null && cmdArgs.isNotEmpty) {
     args = cmdArgs;
     // rustdesk <uri link>
-    if (args[0].startsWith(bind.mainUriPrefixSync())) {
+    if (isOurUriLink(args[0])) {
       final uri = Uri.tryParse(args[0]);
       if (uri != null) {
         args = urlLinkToCmdArgs(uri);
@@ -3062,6 +3062,15 @@ int versionCmp(String v1, String v2) {
 
 /// Name of the MSP host-only build, empty in a standard build.
 String getMspTitle() => bind.mainGetBuildinOption(key: 'msp-title');
+
+/// HGC IT Quick Access build (RUSTDESK_QUICK_ACCESS=1): connect box only.
+bool isQuickAccess() => bind.mainGetBuildinOption(key: 'quick-access') == 'Y';
+
+/// Whether [s] is a link this build answers: its own scheme, plus `rustdesk://` in
+/// Quick Access (mirrors get_uri_prefixes in src/common.rs).
+bool isOurUriLink(String s) =>
+    s.startsWith(bind.mainUriPrefixSync()) ||
+    (isQuickAccess() && s.startsWith('rustdesk://'));
 
 String getWindowName({WindowType? overrideType}) {
   final name = bind.mainGetAppNameSync();

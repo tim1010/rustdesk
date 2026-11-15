@@ -5,6 +5,23 @@ import 'package:get/get.dart';
 import '../../common.dart';
 
 Widget getConnectionPageTitle(BuildContext context, bool isWeb) {
+  // HGC IT Quick Access: the HGC IT logo and name replace "Control Remote Desktop".
+  if (!isWeb && isQuickAccess()) {
+    return Align(
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          loadLogo(),
+          Text(
+            getMspTitle(),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge,
+          ).marginOnly(top: 8),
+        ],
+      ),
+    );
+  }
   return Row(
     children: [
       Expanded(

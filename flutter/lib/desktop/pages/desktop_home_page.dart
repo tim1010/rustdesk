@@ -59,6 +59,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
+    if (isQuickAccess()) {
+      return _buildBlock(child: buildQuickAccessPane(context));
+    }
     return _buildBlock(
         child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,35 +151,63 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 Expanded(child: Container())
               ],
             ),
-            if (isOutgoingOnly)
-              Positioned(
-                bottom: 6,
-                left: 12,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    child: Obx(
-                      () => Icon(
-                        Icons.settings,
-                        color: _editHover.value
-                            ? textColor
-                            : Colors.grey.withOpacity(0.5),
-                        size: 22,
-                      ),
-                    ),
-                    onTap: () => {
-                      if (DesktopSettingPage.tabKeys.isNotEmpty)
-                        {
-                          DesktopSettingPage.switch2page(
-                              DesktopSettingPage.tabKeys[0])
-                        }
-                    },
-                    onHover: (value) => _editHover.value = value,
-                  ),
-                ),
-              )
+            if (isOutgoingOnly) _buildSettingsGear(textColor)
           ],
         ),
+      ),
+    );
+  }
+
+  /// Settings gear pinned bottom-left; outgoing-only builds have no other way into settings.
+  Widget _buildSettingsGear(Color? textColor) {
+    return Positioned(
+      bottom: 6,
+      left: 12,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: InkWell(
+          child: Obx(
+            () => Icon(
+              Icons.settings,
+              color: _editHover.value
+                  ? textColor
+                  : Colors.grey.withOpacity(0.5),
+              size: 22,
+            ),
+          ),
+          onTap: () => {
+            if (DesktopSettingPage.tabKeys.isNotEmpty)
+              {
+                DesktopSettingPage.switch2page(DesktopSettingPage.tabKeys[0])
+              }
+          },
+          onHover: (value) => _editHover.value = value,
+        ),
+      ),
+    );
+  }
+
+  /// HGC IT Quick Access: no "Your Desktop" panel, just the connect page, with the
+  /// install/upgrade prompt on top (the portable exe's only way to install itself) and the
+  /// settings gear in the corner.
+  Widget buildQuickAccessPane(BuildContext context) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return ChangeNotifierProvider.value(
+      value: gFFI.serverModel,
+      child: Column(
+        children: [
+          // Custom clients never get the "new RustDesk version" card, so on Windows this
+          // only ever shows the install / upgrade card (or a system error).
+          Obx(() => buildHelpCards(stateGlobal.updateUrl.value)),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(child: buildRightPane(context)),
+                _buildSettingsGear(textColor),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
