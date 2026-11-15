@@ -13,9 +13,13 @@ Build the MSP client first (with RUSTDESK_MSP_HOST=1), and copy its Release fold
     standard RustDesk rather than replacing it
   - names the Start menu folder and shortcut -DisplayName, and creates no desktop shortcut
 
+The Quick Access build (RUSTDESK_QUICK_ACCESS=1) uses the same script with its own
+names, -ConnType outgoing (no service) and -ExtraScheme rustdesk.
+
 .EXAMPLE
 .\build-msp-msi.ps1
 .\build-msp-msi.ps1 -Source D:\out\Release -OutDir D:\out
+.\build-msp-msi.ps1 -DisplayName 'HGC IT Quick Access' -AppName HGCITQuickAccess -ConnType outgoing -StageName quick-access -FileName hgcit-quick-access-1.5.3-x64.msi -ExtraScheme rustdesk
 #>
 param(
     # The MSP host build's Release folder. Defaults to <repo>\..\builds\msp-host\Release.
@@ -26,14 +30,23 @@ param(
     [string]$DisplayName = 'HGC IT MSP Access',
     # Internal app name; must match MSP_APP_NAME in src/common.rs (no spaces).
     [string]$AppName = 'HGCITMSPAccess',
+    # incoming: MSP host (installs the service). outgoing: Quick Access (no service).
+    [ValidateSet('incoming', 'outgoing')]
+    [string]$ConnType = 'incoming',
+    # Build and staging folder name: <repo>\..\builds\<name>, <repo>\..\msi-stage\<name>.
+    [string]$StageName = 'msp-host',
+    # Output file name. Defaults to rustdesk-msp-host-<version>-x64.msi.
+    [string]$FileName,
+    # A URL scheme to register to the app as well as its own, e.g. 'rustdesk'.
+    [string]$ExtraScheme = '',
     [string]$MSBuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
 )
 $ErrorActionPreference = 'Stop'
 $Repo = $PSScriptRoot
 $Root = Split-Path $Repo -Parent
-if (-not $Source) { $Source = "$Root\builds\msp-host\Release" }
-if (-not $OutDir) { $OutDir = "$Root\builds\msp-host" }
-$Stage = "$Root\msi-stage\msp-host\rustdesk"
+if (-not $Source) { $Source = "$Root\builds\$StageName\Release" }
+if (-not $OutDir) { $OutDir = "$Root\builds\$StageName" }
+$Stage = "$Root\msi-stage\$StageName\rustdesk"
 
 if (-not (Test-Path "$Source\$AppName.exe") -and -not (Test-Path "$Source\rustdesk.exe")) { throw "MSP build not found at $Source" }
 if (-not (Test-Path $MSBuild)) { throw "MSBuild not found at $MSBuild" }
@@ -50,7 +63,7 @@ New-Item -ItemType Directory -Force $OutDir | Out-Null
 
 Push-Location "$Repo\res\msi"
 try {
-    python preprocess.py -d $Stage --conn-type incoming --app-name $AppName -m 'HGC IT Solutions Limited'
+    python preprocess.py -d $Stage --conn-type $ConnType --app-name $AppName -m 'HGC IT Solutions Limited'
     if ($LASTEXITCODE -ne 0) { throw "preprocess.py failed" }
 
     # Start menu folder and shortcut names: the display name, not the internal app name.
@@ -80,6 +93,31 @@ try {
     $t = $t -replace '\s*<Control Id="ChkBoxDesktopShortcuts"[^>]*/>', ''
     [IO.File]::WriteAllText((Resolve-Path $dlg), $t, [Text.UTF8Encoding]::new($true))
 
+    # Extra URL scheme (Quick Access answers rustdesk:// too). Known limit: the MSI removes
+    # this key on uninstall even if another app has taken the scheme over since.
+    if ($ExtraScheme) {
+        $regs = 'Package\Components\Regs.wxs'
+        $t = Get-Content -Raw $regs
+        $anchor = '<Component Id="Product.Registry.InstallState"'
+        if (-not $t.Contains($anchor)) { throw "InstallState component not found in $regs" }
+        $component = "<Component Id=""Product.Registry.ExtraScheme"" Guid=""4F7C2A61-9B3E-4D85-A1C6-3E2B7D9F0A14"">`r`n" +
+            "`t`t`t`t<RegistryKey Root=""HKCR"" Key=""$ExtraScheme"">`r`n" +
+            "`t`t`t`t`t<RegistryValue Type=""string"" Name=""URL Protocol"" Value="""" />`r`n" +
+            "`t`t`t`t</RegistryKey>`r`n" +
+            "`t`t`t`t<RegistryKey Root=""HKCR"" Key=""$ExtraScheme\shell\open\command"">`r`n" +
+            "`t`t`t`t`t<RegistryValue Type=""string"" Value='""[INSTALLFOLDER_INNER]`$(var.Product).exe"" ""%1""' />`r`n" +
+            "`t`t`t`t</RegistryKey>`r`n" +
+            "`t`t`t</Component>`r`n`r`n`t`t`t"
+        $t = $t.Replace($anchor, $component + $anchor)
+        [IO.File]::WriteAllText((Resolve-Path $regs), $t, [Text.UTF8Encoding]::new($true))
+        $pkg = 'Package\Package.wxs'
+        $t = Get-Content -Raw $pkg
+        $ref = '<ComponentRef Id="Product.Registry.Command" />'
+        if (-not $t.Contains($ref)) { throw "Product.Registry.Command ref not found in $pkg" }
+        $t = $t.Replace($ref, "$ref`r`n`t`t`t<ComponentRef Id=""Product.Registry.ExtraScheme"" />")
+        [IO.File]::WriteAllText((Resolve-Path $pkg), $t, [Text.UTF8Encoding]::new($true))
+    }
+
     # Add/Remove Programs icon: HGC IT logo instead of the RustDesk one.
     Copy-Item -Force "$Repo\flutter\assets\msp_logo.ico" "Package\Resources\icon.ico"
 
@@ -105,7 +143,8 @@ try {
 
     $msi = Get-ChildItem .\Package\bin\*\Release\en-us\Package.msi | Select-Object -First 1
     $ver = (Select-String -Path "$Repo\Cargo.toml" -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
-    $dest = "$OutDir\rustdesk-msp-host-$ver-x64.msi"
+    if (-not $FileName) { $FileName = "rustdesk-msp-host-$ver-x64.msi" }
+    $dest = "$OutDir\$FileName"
     Move-Item -Force $msi.FullName $dest
     Write-Host "MSI: $dest" -ForegroundColor Green
 }
