@@ -2545,6 +2545,19 @@ pub fn is_branded() -> bool {
     is_msp_host_lock() || is_quick_access()
 }
 
+/// Editable defaults for Quick Access. WebSocket makes every session go through the relay,
+/// which is the only way to reach hosts the server can't punch through to (for example a VM
+/// behind its host's NAT); without it the session fails with "Please try later".
+fn quick_access_default_settings() -> [(&'static str, &'static str); 5] {
+    [
+        ("custom-rendezvous-server", MSP_RENDEZVOUS_SERVER),
+        (keys::OPTION_RELAY_SERVER, MSP_RELAY_SERVER),
+        ("api-server", MSP_API_SERVER),
+        ("key", MSP_KEY),
+        (keys::OPTION_ALLOW_WEBSOCKET, "Y"),
+    ]
+}
+
 /// Quick Access: outgoing-only, with the HGC IT server as editable defaults (not locked, so a
 /// technician can still point it elsewhere), and the branding flags the Flutter UI reads.
 pub fn apply_quick_access() {
@@ -2558,12 +2571,7 @@ pub fn apply_quick_access() {
         .insert("conn-type".to_owned(), "outgoing".to_owned());
     {
         let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
-        for (k, v) in [
-            ("custom-rendezvous-server", MSP_RENDEZVOUS_SERVER),
-            (keys::OPTION_RELAY_SERVER, MSP_RELAY_SERVER),
-            ("api-server", MSP_API_SERVER),
-            ("key", MSP_KEY),
-        ] {
+        for (k, v) in quick_access_default_settings() {
             defaults.insert(k.to_owned(), v.to_owned());
         }
     }
@@ -3259,6 +3267,15 @@ mod tests {
             quick_access_uri_prefixes("RustDesk", true),
             vec!["rustdesk://".to_owned()]
         );
+    }
+
+    #[test]
+    fn quick_access_defaults_use_hgc_server_over_websocket() {
+        let d: HashMap<&str, &str> = quick_access_default_settings().into_iter().collect();
+        assert_eq!(d.get("custom-rendezvous-server"), Some(&"rd.hgcit.co.uk"));
+        assert_eq!(d.get("key"), Some(&MSP_KEY));
+        // Hosts behind another NAT (e.g. a VM) are only reachable through the relay.
+        assert_eq!(d.get(keys::OPTION_ALLOW_WEBSOCKET), Some(&"Y"));
     }
 
     #[test]
