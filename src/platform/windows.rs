@@ -1563,6 +1563,33 @@ pub fn remove_meta_toml_cmd(is_msi: bool, path: &str) -> String {
     }
 }
 
+/// Quick Access also answers `rustdesk://` links. Batch lines that register that scheme to
+/// `exe` (already escaped for a nested cmd, like the app's own scheme lines below).
+fn extra_scheme_install_cmds(exe: &str) -> String {
+    format!(
+        "
+    reg add HKEY_CLASSES_ROOT\\rustdesk /f
+    reg add HKEY_CLASSES_ROOT\\rustdesk /f /v \"URL Protocol\" /t REG_SZ /d \"\"
+    reg add HKEY_CLASSES_ROOT\\rustdesk\\shell\\open\\command /f
+    reg add HKEY_CLASSES_ROOT\\rustdesk\\shell\\open\\command /f /ve /t REG_SZ /d \"\\\"{exe}\\\" \\\"%%1\\\"\"
+    "
+    )
+}
+
+/// Removes the `rustdesk://` registration only while it still opens `exe`, so uninstalling
+/// Quick Access never breaks a RustDesk that took the scheme back.
+fn extra_scheme_uninstall_cmds(exe: &str) -> String {
+    let file_name = std::path::Path::new(exe)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or(exe);
+    format!(
+        "
+    reg query HKEY_CLASSES_ROOT\\rustdesk\\shell\\open\\command /ve 2>nul | findstr /I /C:\"{file_name}\" >nul && reg delete HKEY_CLASSES_ROOT\\rustdesk /f
+    "
+    )
+}
+
 fn get_after_install(
     exe: &str,
     reg_value_start_menu_shortcuts: Option<String>,
@@ -1618,11 +1645,13 @@ fn get_after_install(
     reg add HKEY_CLASSES_ROOT\\{ext}\\shell\\open /f
     reg add HKEY_CLASSES_ROOT\\{ext}\\shell\\open\\command /f
     reg add HKEY_CLASSES_ROOT\\{ext}\\shell\\open\\command /f /ve /t REG_SZ /d \"\\\"{nested_exe}\\\" \\\"%%1\\\"\"
+    {extra_scheme}
     netsh advfirewall firewall add rule name=\"{app_name} Service\" dir=out action=allow program=\"{exe}\" enable=yes
     netsh advfirewall firewall add rule name=\"{app_name} Service\" dir=in action=allow program=\"{exe}\" enable=yes
     {create_service}
     reg add HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /f /v SoftwareSASGeneration /t REG_DWORD /d 1
-    ", create_service=get_create_service(&exe))
+    ", create_service=get_create_service(&exe),
+    extra_scheme = if crate::common::is_quick_access() { extra_scheme_install_cmds(&nested_exe) } else { String::new() })
 }
 
 pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> ResultType<()> {
@@ -1862,9 +1891,11 @@ fn get_before_uninstall(kill_self: bool) -> ResultType<String> {
     taskkill /F /IM {app_name}.exe{filter}
     reg delete HKEY_CLASSES_ROOT\\.{ext} /f
     reg delete HKEY_CLASSES_ROOT\\{ext} /f
+    {extra_scheme}
     netsh advfirewall firewall delete rule name=\"{app_name} Service\"
     ",
         broker_exe = WIN_TOPMOST_INJECTED_PROCESS_EXE,
+        extra_scheme = if crate::common::is_quick_access() { extra_scheme_uninstall_cmds(&exe) } else { String::new() },
     ))
 }
 
@@ -4909,6 +4940,19 @@ pub(super) fn get_pids_with_first_arg_by_wmic<S1: AsRef<str>, S2: AsRef<str>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extra_scheme_cmds_target_rustdesk_key_and_our_exe() {
+        let exe = r"C:\Program Files\HGCITQuickAccess\HGCITQuickAccess.exe";
+        let i = extra_scheme_install_cmds(exe);
+        assert!(i.contains(r#"reg add HKEY_CLASSES_ROOT\rustdesk /f /v "URL Protocol""#));
+        assert!(i.contains(r"HKEY_CLASSES_ROOT\rustdesk\shell\open\command"));
+        assert!(i.contains(exe));
+        let u = extra_scheme_uninstall_cmds(exe);
+        // Only deletes when the open command still points at our exe.
+        assert!(u.contains("findstr /I /C:\"HGCITQuickAccess.exe\""));
+        assert!(u.contains(r"&& reg delete HKEY_CLASSES_ROOT\rustdesk /f"));
+    }
 
     #[test]
     fn vbs_files_use_utf16le_with_bom_and_crlf() {
