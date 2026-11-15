@@ -1656,8 +1656,8 @@ pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> Res
     let app_name = crate::get_app_name();
     // Start menu shortcut and Add/Remove Programs name ("HGC IT MSP Access" in the MSP build).
     let link_name = crate::common::get_shortcut_name();
-    // The MSP build never puts a shortcut on the desktop.
-    let options = if crate::common::is_msp_host_lock() {
+    // The HGC IT builds (MSP Access, Quick Access) never put a shortcut on the desktop.
+    let options = if crate::common::is_branded() {
         options.replace("desktopicon", "")
     } else {
         options.to_owned()

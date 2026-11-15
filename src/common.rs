@@ -1237,6 +1237,21 @@ pub fn get_uri_prefix() -> String {
     format!("{}://", get_app_name().to_lowercase())
 }
 
+/// Every link prefix this build answers: its own (`<app name>://`), plus `rustdesk://` in the
+/// Quick Access build so existing RustDesk links open it too.
+pub fn get_uri_prefixes() -> Vec<String> {
+    quick_access_uri_prefixes(&get_app_name(), is_quick_access())
+}
+
+fn quick_access_uri_prefixes(app_name: &str, quick_access: bool) -> Vec<String> {
+    let own = format!("{}://", app_name.to_lowercase());
+    let mut prefixes = vec![own.clone()];
+    if quick_access && own != "rustdesk://" {
+        prefixes.push("rustdesk://".to_owned());
+    }
+    prefixes
+}
+
 #[cfg(target_os = "macos")]
 pub fn get_full_name() -> String {
     format!(
@@ -2509,6 +2524,55 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 pub fn load_custom_client() {
     load_custom_client_file();
     apply_msp_host_lock();
+    apply_quick_access();
+}
+
+/// HGC IT Quick Access: the branded, connect-out-only controller. Compiled in when the
+/// build runs with `RUSTDESK_QUICK_ACCESS=1` set. Never set together with `RUSTDESK_MSP_HOST`.
+pub fn is_quick_access() -> bool {
+    option_env!("RUSTDESK_QUICK_ACCESS") == Some("1")
+}
+
+/// Internal app name for the Quick Access build (exe, install folder, config folder, registry
+/// keys, link scheme). No spaces, for the same reason as `MSP_APP_NAME`.
+pub const QA_APP_NAME: &str = "HGCITQuickAccess";
+pub const QA_TITLE: &str = "HGC IT Quick Access";
+/// Built-in option the Flutter home page reads to show only the connect box.
+pub const OPTION_QUICK_ACCESS: &str = "quick-access";
+
+/// Either HGC IT build: HGC logo, icons and display name in place of RustDesk's.
+pub fn is_branded() -> bool {
+    is_msp_host_lock() || is_quick_access()
+}
+
+/// Quick Access: outgoing-only, with the HGC IT server as editable defaults (not locked, so a
+/// technician can still point it elsewhere), and the branding flags the Flutter UI reads.
+pub fn apply_quick_access() {
+    if !is_quick_access() {
+        return;
+    }
+    *config::APP_NAME.write().unwrap() = QA_APP_NAME.to_owned();
+    config::HARD_SETTINGS
+        .write()
+        .unwrap()
+        .insert("conn-type".to_owned(), "outgoing".to_owned());
+    {
+        let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+        for (k, v) in [
+            ("custom-rendezvous-server", MSP_RENDEZVOUS_SERVER),
+            (keys::OPTION_RELAY_SERVER, MSP_RELAY_SERVER),
+            ("api-server", MSP_API_SERVER),
+            ("key", MSP_KEY),
+        ] {
+            defaults.insert(k.to_owned(), v.to_owned());
+        }
+    }
+    {
+        let mut builtin = config::BUILTIN_SETTINGS.write().unwrap();
+        builtin.insert(OPTION_MSP_TITLE.to_owned(), QA_TITLE.to_owned());
+        builtin.insert(OPTION_QUICK_ACCESS.to_owned(), "Y".to_owned());
+    }
+    *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = MSP_RENDEZVOUS_SERVER.to_owned();
 }
 
 /// MSP host-only build. Compiled in when the build runs with `RUSTDESK_MSP_HOST=1` set.
@@ -2537,6 +2601,8 @@ pub const MSP_APP_NAME: &str = "HGCITMSPAccess";
 pub fn get_shortcut_name() -> String {
     if is_msp_host_lock() {
         MSP_TITLE.to_owned()
+    } else if is_quick_access() {
+        QA_TITLE.to_owned()
     } else {
         get_app_name()
     }
@@ -2754,11 +2820,13 @@ pub fn read_custom_client(config: &str) {
 
 #[inline]
 pub fn is_empty_uni_link(arg: &str) -> bool {
-    let prefix = crate::get_uri_prefix();
-    if !arg.starts_with(&prefix) {
-        return false;
-    }
-    arg[prefix.len()..].chars().all(|c| c == '/')
+    is_empty_uni_link_for(arg, &get_uri_prefixes())
+}
+
+fn is_empty_uni_link_for(arg: &str, prefixes: &[String]) -> bool {
+    prefixes
+        .iter()
+        .any(|prefix| arg.starts_with(prefix) && arg[prefix.len()..].chars().all(|c| c == '/'))
 }
 
 pub fn get_hwid() -> Bytes {
@@ -3176,6 +3244,31 @@ mod tests {
         self,
         time::{interval, interval_at, sleep, Duration, Instant, Interval},
     };
+
+    #[test]
+    fn quick_access_uri_prefixes_adds_rustdesk_only_for_quick_access() {
+        assert_eq!(
+            quick_access_uri_prefixes("HGCITQuickAccess", true),
+            vec!["hgcitquickaccess://".to_owned(), "rustdesk://".to_owned()]
+        );
+        assert_eq!(
+            quick_access_uri_prefixes("HGCITMSPAccess", false),
+            vec!["hgcitmspaccess://".to_owned()]
+        );
+        assert_eq!(
+            quick_access_uri_prefixes("RustDesk", true),
+            vec!["rustdesk://".to_owned()]
+        );
+    }
+
+    #[test]
+    fn empty_uni_link_matches_any_prefix() {
+        let p = quick_access_uri_prefixes("HGCITQuickAccess", true);
+        assert!(is_empty_uni_link_for("rustdesk://", &p));
+        assert!(is_empty_uni_link_for("hgcitquickaccess:///", &p));
+        assert!(!is_empty_uni_link_for("rustdesk://15906157", &p));
+        assert!(!is_empty_uni_link_for("other://", &p));
+    }
 
     #[test]
     fn relay_uuid_rejects_control_bytes_but_not_other_id_formats() {

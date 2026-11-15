@@ -306,7 +306,7 @@ fn load_icon_from_asset() -> Option<image::DynamicImage> {
     #[cfg(target_os = "macos")]
     let path = path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/icon.png");
     #[cfg(windows)]
-    let path = path.join(if crate::common::is_msp_host_lock() {
+    let path = path.join(if crate::common::is_branded() {
         r"data\flutter_assets\assets\msp_logo.png"
     } else {
         r"data\flutter_assets\assets\icon.png"
