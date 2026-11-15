@@ -151,15 +151,42 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 Expanded(child: Container())
               ],
             ),
-            if (isOutgoingOnly) _buildSettingsGear(textColor)
+            if (isOutgoingOnly)
+              Positioned(
+                bottom: 6,
+                left: 12,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
+                    child: Obx(
+                      () => Icon(
+                        Icons.settings,
+                        color: _editHover.value
+                            ? textColor
+                            : Colors.grey.withOpacity(0.5),
+                        size: 22,
+                      ),
+                    ),
+                    onTap: () => {
+                      if (DesktopSettingPage.tabKeys.isNotEmpty)
+                        {
+                          DesktopSettingPage.switch2page(
+                              DesktopSettingPage.tabKeys[0])
+                        }
+                    },
+                    onHover: (value) => _editHover.value = value,
+                  ),
+                ),
+              )
           ],
         ),
       ),
     );
   }
 
-  /// Settings gear pinned bottom-left; outgoing-only builds have no other way into settings.
-  Widget _buildSettingsGear(Color? textColor) {
+  /// Quick Access settings gear: same as the outgoing-only gear in [buildLeftPane], which
+  /// goes away with the panel.
+  Widget _buildQuickAccessSettingsGear(Color? textColor) {
     return Positioned(
       bottom: 6,
       left: 12,
@@ -203,7 +230,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             child: Stack(
               children: [
                 Positioned.fill(child: buildRightPane(context)),
-                _buildSettingsGear(textColor),
+                _buildQuickAccessSettingsGear(textColor),
               ],
             ),
           ),
